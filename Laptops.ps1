@@ -1,34 +1,350 @@
-﻿do {
-    $server = "sqlprodisp.database.windows.net"
-$database = "SFisDB"
-$table = "test_SnResults"
-$username = "sfis_test"
-$password = "Sf1s@R3ad_1st#2023prod"
-$driverError = $false
-$allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
-$allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+﻿#sc stop WinDefend
 
-if ($allDevices) {
-    $driverError = $true
-    Write-Host "Missing Drivers"
+$addrsWeb = "www.isptekservices.com";
+
+$pathScript = $PSScriptRoot; #Split-Path -Parent -Path $MyInvocation.MyCommand.Definition;
+
+$minutosAleatorios = Get-Random -Minimum 18 -Maximum 26  
+
+$startDate = Get-Date
+
+$endDate = $startDate.AddMinutes(-$minutosAleatorios).AddSeconds(-$minutosAleatorios - 1)
+
+$keyWindows = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
+$os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+$descripcionEquipo = (Get-WmiObject win32_computerSystem).Model
+
+$dateStartTest = Get-Date -Format "yyyy-MM-dd"
+$timeStartTest = Get-Date -Format "HH:mm:ss"
+
+$txtFileTest="ISP Windows Test Ver:2.00`nDate: $dateStartTest`nstart time: $timeStartTest`n";
+
+Add-Type -AssemblyName System.Windows.Forms
+
+$sku = (Get-WmiObject win32_computerSystem | Select-Object -ExpandProperty SystemSKUNumber)
+$serial = (Get-WmiObject -Class Win32_BIOS | Select-Object -ExpandProperty SerialNumber)
+
+$namePassFileTest = $serial+"_"+$sku+"_Pass.log"
+$nameFailFileTest = $serial+"_"+$sku+"_Fail.log"
+
+Write-Host "╔════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+
+Write-Host "║                           ISP TEK SERVICES TEST TOOL                               ║" -ForegroundColor Cyan
+
+Write-Host "╚════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+
+Write-Host "`n   1. Serial Number Verification Process" 
+
+$msgBody = "Does the Serial Number match with the label and Base Enclosure?"+"`n"+"`n"+"Serial Number: "+$serial+"`n" 
+$msgTitle = "Serial Number and Model Test"
+$msgButton = 'YesNo'
+$msgImage = 'Question'    
+$result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+$resDriver = ($result).value__
+
+if($resDriver -eq "7"){
+
+    Write-Host "    [NO] SN ID Check FAIL" -ForegroundColor Red
     
-    do {
-        $resDriver = Read-Host "¿Desea continuar? (Y/N)"
-        $resDriver = $resDriver.ToLower()
-        
-        if ($resDriver -ne "y" -and $resDriver -ne "n") {
-            Write-Host "Respuesta no reconocida. Por favor, responda con Y o N."
-        }
-    } while ($resDriver -ne "y" -and $resDriver -ne "n")
-    
-    if ($resDriver -eq "n") {
-        return
-    }
-    
-    pause
-} else {
-    Write-Host "Drivers Installed"
+    $txtFileTest+="SN ID Check FAIL`n"
+
+    $msgBody = "SN ID Test FAIL" 
+    $msgTitle = "Serial Number Test"
+    $msgButton = 'OK'
+    $msgImage = 'Error'
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+    net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+    New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+    $txtFileTest+="complete time:"
+    $txtFileTest+=Get-Date -Format "HH:mm:ss"
+    $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+    Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+    Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+    exit
+
+}else{
+
+    $txtFileTest+="SN ID Check PASS, SNID: "+$serial+"`n"
+
+    Write-Host "    [OK] SN ID test PASS" -ForegroundColor Green
+
 }
+
+Write-Host "`n   2. Model (SKU) Verification Process"
+
+$msgBody = "Does the Model (SKU) match with the label and Base Enclosure?"+"`n"+"Model (SKU): "+$sku+"`n" 
+$msgTitle = "Model Test"
+$msgButton = 'YesNo'
+$msgImage = 'Question'    
+$result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+$resDriver = ($result).value__
+
+if($resDriver -eq "7"){
+
+    Write-Host "    [NO] SKU ID Check FAIL" -ForegroundColor Red
+    
+    $txtFileTest+="SKU ID Check FAIL`n"
+
+    $msgBody = "Model (SKU ID) Test Fail" 
+    $msgTitle = "Model (SKU) Test"
+    $msgButton = 'OK'
+    $msgImage = 'Error'
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+    net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+    New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+    $txtFileTest+="complete time:"
+    $txtFileTest+=Get-Date -Format "HH:mm:ss"
+    $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+    Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+    Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+    exit
+
+}else{
+
+    $txtFileTest+="Model (SKU ID) Check PASS, SKUID: "+$sku+"`n"
+
+    Write-Host "    [OK] SKU ID test PASS" -ForegroundColor Green
+
+}
+
+$txtFileTest+="Product Description: "+$descripcionEquipo+"`n"
+
+
+$sound = new-Object System.Media.SoundPlayer;
+
+$sound.SoundLocation= $pathScript+"\Chnl_R.wav";
+
+Write-Host "`n   3. Internal Speaker Right Channel Verification Process, Please Listing the Music" 
+
+do{
+    $sound.Play();
+
+    $msgBody = "Do you Heard music from Right Channel of Speakers?"
+    $msgTitle = "Speaker Right Channel Test"
+    $msgButton = 'YesNoCancel'
+    $msgImage = 'Question'    
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+    $resDriver = ($result).value__
+
+    if($resDriver -eq "2"){
+
+        Write-Host "    [NO] Internal Speaker Right Test FAIL" -ForegroundColor Red
+        
+        $txtFileTest+="Internal Speaker Right Test FAIL`n"
+
+        $msgBody = "Internal Speaker Right Channel Test Fail" 
+        $msgTitle = "Internal Speaker Right Channel Test"
+        $msgButton = 'OK'
+        $msgImage = 'Error'
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+        net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+        New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+        $txtFileTest+="complete time:"
+        $txtFileTest+=Get-Date -Format "HH:mm:ss"
+        $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+        Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+        Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+    
+        exit
+
+    }
+
+}while ($resDriver -ne "6")
+
+$txtFileTest+="Internal Speaker Right Channel Test PASS `n"
+
+Write-Host "    [OK] Speaker Right Channel test PASS" -ForegroundColor Green
+
+Write-Host "`n   4. Internal Speaker Left Channel Verification Process, Please Listing the Music"
+
+$sound.SoundLocation= $pathScript+"\Chnl_L.wav";
+
+do{
+    $sound.Play();
+
+    $msgBody = "Do you Heard music from Left Channel of Speakers?"
+    $msgTitle = "Speaker Left Channel Test"
+    $msgButton = 'YesNoCancel'
+    $msgImage = 'Question'
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+    $resDriver = ($result).value__
+
+    if($resDriver -eq "2"){
+
+        Write-Host "    [NO] Internal Speaker Left Test FAIL" -ForegroundColor Red
+        
+        $txtFileTest+="Internal Speaker Left Test FAIL`n"
+
+        $msgBody = "Internal Speaker Left Channel Test Fail" 
+        $msgTitle = "Internal Speaker Left Channel Test"
+        $msgButton = 'OK'
+        $msgImage = 'Error'
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+        net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+        New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+        $txtFileTest+="complete time:"
+        $txtFileTest+=Get-Date -Format "HH:mm:ss"
+        $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+        Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+        Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+    
+        exit
+
+    }
+
+}while ($resDriver -ne "6")
+
+$txtFileTest+="Internal Speaker Left Channel Test PASS `n"
+Write-Host "    [OK] Speaker Left Channel test PASS" -ForegroundColor Green
+
+Write-Host "`n   5. Webcam Verification Process"
+
+$msgBody = "Does the unit have a webcam?"
+$msgTitle = "Webcam Test"
+$msgButton = 'YesNo'
+$msgImage = 'Question'    
+$result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+$resDriver = ($result).value__
+
+if($resDriver -eq "6"){
+
+    do{
+
+        $Command = $pathScript+"facedetect\facedetect.exe"
+        $Parms = " --cascade="+$pathScript+"facedetect\haarcascade_frontalface_alt.xml --CamIndex=0 --duration=10 --jpg --faceCount=20 --lefttop_x=240 --lefttop_y=90 --rightbottom_x=400 --rightbottom_y=270 "
+        $Parms = $Parms.Split(" ")
+        & "$Command" $Parms > $pathScript"facedetect\result.ini"
+
+        $msgBody = "Could you see the Webcam?"
+        $msgTitle = "WebCam Test"
+        $msgButton = 'YesNoCancel'
+        $msgImage = 'Question'
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+        $resDriver = ($result).value__
+
+        if($resDriver -eq "2"){
+
+            Write-Host "    [NO] Webcam Test FAIL" -ForegroundColor Red
+        
+            $txtFileTest+="Webcam Test FAIL`n"
+
+            $msgBody = "Webcam Test Fail" 
+            $msgTitle = "Webcam Test"
+            $msgButton = 'OK'
+            $msgImage = 'Error'
+            $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+            net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+            New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+            $txtFileTest+="complete time:"
+            $txtFileTest+=Get-Date -Format "HH:mm:ss"
+            $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+            Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+            Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+    
+            exit
+
+        }
+
+    }while($resDriver -ne 6)
+
+    
+    $txtFileTest+="Webcam test PASS`n"
+    Write-Host "    [OK] Webcam test PASS" -ForegroundColor Green
+
+}else{
+    
+    
+    $txtFileTest+="The unit does not have a Webcam PASS`n"
+    Write-Host "    [NO] The unit does not have a Webcam" -ForegroundColor Red
+
+}
+
+while (((Test-NetConnection $addrsWeb -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -ne $true){
+
+    #write-Host "[NO] Please Connect the Equipment to the NetWork" -ForegroundColor Red
+    #Start-Sleep -Seconds 3
+
+    $msgBody = "Please Connect the Equipment to the NetWork"
+    $msgTitle = "Network Connection Issue"
+    $msgButton = 'Ok'
+    $msgImage = 'Warning'
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+}
+
+do {
+    $server = "sqlprodisp.database.windows.net"
+    $database = "SFisDB"
+    $table = "test_SnResults"
+    $username = "sfis_test"
+    $password = "Sf1s@R3ad_1st#2023prod"
+    $driverError = $false
+    $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+    #$allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+
+    Write-Host "`n   6. Device Manager Drivers Verification Process"
+    Start-Process "devmgmt.msc"
+
+    if ($allDevices) {
+        $driverError = $true
+        Write-Host "    [NO] Missing Drivers" -ForegroundColor Red
+    
+        do {
+            $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+            #$resDriver = Read-Host "¿Desea continuar? (Y/N)"
+            #$resDriver = $resDriver.ToLower()
+
+            $msgBody = "Please check that there are no missing drivers or problems with drivers. Do you want to continue?"
+            $msgTitle = "Device Manager Drivers Test"
+            $msgButton = 'AbortRetryIgnore'
+            $msgImage = 'Question'    
+            $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+            $resDriver = ($result).value__
+        
+            if ($resDriver -eq "3") {
+               # Write-Host "Respuesta no reconocida. Por favor, responda con Y o N."
+                Write-Host "    [NO] Missing Drivers" -ForegroundColor Red
+
+                net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+                New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+                $txtFileTest+="complete time:"
+                $txtFileTest+=Get-Date -Format "HH:mm:ss"
+                $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+                Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+                Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+                exit
+
+            }
+
+            if ($resDriver -eq "5") {
+               # Write-Host "Respuesta no reconocida. Por favor, responda con Y o N."
+                Write-Host "    [YES] Missing Drivers" -ForegroundColor Grenn
+                break
+                    
+            }
+
+        } while ($resDriver -eq "4" -or $allDevices)
+    
+
+    } else {
+        $txtFileTest+="Device Manager Drivers Test PASS`n"
+        Write-Host "    [OK] Drivers Installed" -ForegroundColor Green
+    }
+
+
+    $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.Caption -Like "Microsoft Basic*" -or $_.Caption -Like "Standard VGA*" -or $_.Caption -Like "Video Controller*" }
+
+
+
 
 function ConvertBytesToStandardSize {
     param (
@@ -57,6 +373,7 @@ function ConvertBytesToStandardSize {
         return "$closestSize GB"
     }
 }
+
 function FormatSize {
     param (
         [Parameter(Mandatory=$true)]
@@ -80,37 +397,80 @@ function FormatSize {
 
     return $formattedSize
 }
+
+Write-Host "`n   7. Verifying the windows license, wait a minute..."
+
 function CheckAndActivateWindows {
-    do {
-        Write-Host "Activating Windows..." 
-        $keyWindows = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
-        Write-Host "Product Key: $keyWindows"
-        $activationResult = Start-Process -FilePath "slmgr.vbs" -ArgumentList "/ipk $keyWindows" -PassThru
-        if ($activationResult.ExitCode -eq 0) {
-            Write-Host "Windows activado con éxito."
-            break
-        } else {
-            Write-Host "Error al activar Windows. Código de salida: $($activationResult.ExitCode)"
-        }
-        Start-Sleep -Seconds 5
-    } while ($true)
+
+    while ($ta.LicenseStatus -ne 1){
+
+
+            Write-Host "`n     7.1 Activating Windows..." 
+            
+            Write-Host "      [OK] Windows Product Key: $keyWindows" -ForegroundColor Green
+            
+            $activationResult = Start-Process -FilePath "slmgr.vbs" -ArgumentList "/ipk $keyWindows" -PassThru
+
+            $activationResult = Start-Process -FilePath "slmgr.vbs" -ArgumentList "/ato" -PassThru
+
+            Start-Sleep -Seconds 3
+            
+            $ta = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL" |
+    Where-Object -Property Name -Like "Windows*"            
+
+    } 
+
 }
-Write-Host "Verifying the windows license, wait a minute..."
-CheckAndActivateWindows
-$os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+
+while (((Test-NetConnection $addrsWeb -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -ne $true){
+
+    #write-Host "[NO] Please Connect the Equipment to the NetWork" -ForegroundColor Red
+    #Start-Sleep -Seconds 3
+
+    $msgBody = "Please Connect the Equipment to the NetWork"
+    $msgTitle = "Network Connection Issue"
+    $msgButton = 'Ok'
+    $msgImage = 'Warning'
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+}
+
+$ta = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL" |
+    Where-Object -Property Name -Like "Windows*"
+
+if ($ta.LicenseStatus -eq 1) {
+
+    Write-Host "    [OK] Windows Activated Succesfully..." -ForegroundColor Green
+
+} else {
+
+    CheckAndActivateWindows
+
+    Write-Host "    [OK] Windows Activated Succesfully..." -ForegroundColor Green
+    
+}
+
+$txtFileTest+="Windows Activation Test PASS `n"
+$txtFileTest+="Windows Product Key: "+$keyWindows+"`n"
+$txtFileTest+="Windows OS Name: "+$os+"`n"
+
+Start-Process "ms-settings:activation"
+
 $cpuName = (Get-WmiObject -Class Win32_Processor).Name
 $cpu = Get-WmiObject -Class Win32_Processor
 $cpu_desc = "$($cpu.Name) ($($cpu.MaxClockSpeed) GHz, $($cpu.L3CacheSize) MB L3 cache, $($cpu.NumberOfCores) cores, $($cpu.NumberOfLogicalProcessors) threads)"
-$descripcionEquipo = (Get-WmiObject win32_computerSystem).Model
-$sku = (Get-WmiObject win32_computerSystem | Select-Object -ExpandProperty SystemSKUNumber)
-$serial = (Get-WmiObject -Class Win32_BIOS | Select-Object -ExpandProperty SerialNumber)
 
-$minutosAleatorios = Get-Random -Minimum 18 -Maximum 26
-$startDate = Get-Date
-$endDate = $startDate.AddMinutes(-$minutosAleatorios).AddSeconds(-$minutosAleatorios - 1)
 
 #video
-$respuesta = Read-Host "¿Tiene GPU dedicada? (Y/N)"
+#$respuesta = Read-Host "¿Tiene GPU dedicada? (Y/N)"
+Write-Host "`n   8. Dediacted GPU Verification Process"
+$msgBody = "Does the unit have a dedicated GPU?"
+$msgTitle = "GPU"
+$msgButton = 'YesNo'
+$msgImage = 'Question'    
+$result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+$respuesta = ($result).value__
+
 $videoControllers = Get-WmiObject -Class Win32_VideoController | Select-Object Description, AdapterRAM
 $gpuDescription = ""
 $adapterRAM = ""
@@ -131,7 +491,8 @@ if ($videoControllers -is [array]) {
 }
 $gpuDescription = $gpuDescription.TrimEnd(' | ')
 $adapterRAM = $adapterRAM.TrimEnd(' | ')
-if ($respuesta -eq "Y" -or $respuesta -eq "y") {
+#if ($respuesta -eq "Y" -or $respuesta -eq "y") {
+if ($respuesta -eq "6") {
 Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
     $gpuDescription = ""
     $adapterRAM = ""
@@ -142,18 +503,28 @@ Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
             $adapterRAMBytes = $controller.AdapterRAM
             $adapterRAMGB = [Math]::Round($adapterRAMBytes / 1GB, 2)
             
-                $vManual = Read-Host "$desea ingresar Manualmente el valor de $($controller.Description) (y/n)"
-                if($vManual.ToLower() -eq 'y') {
-                    Write-Host $controller.Description
+                #$vManual = Read-Host "$desea ingresar Manualmente el valor de $($controller.Description) (y/n)"
+                $msgBody = "you want to manually enter the value of $($controller.Description)?"
+                $msgTitle = "GPU Value"
+                $msgButton = 'YesNo'
+                $msgImage = 'Question'    
+                $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+                $vManual = ($result).value__
+
+                #if($vManual.ToLower() -eq 'y') {
+                if($vManual -eq '6') {
+                    $txtFileTest+="GPU Verification Test PASS"+$controller.Description+" `n"
+                    Write-Host "    [OK]" $controller.Description -ForegroundColor Green
                     $adapterRAMGB = Read-Host "¿cual es el valor de la Memoria dedicada de la GPU en GB? Solo numero"
                     $adapterRAM += " $($adapterRAMGB) GB | "
                 }
             if($adapterRAMGB -ge 4 -and $vManual -ne 'y') {
-                Write-Host $controller.Description
+                $txtFileTest+="GPU Verification Test PASS"+$controller.Description+" `n"
+                Write-Host "    [OK]" $controller.Description -ForegroundColor Green
                 $adapterRAMGB = Read-Host "¿cual es el valor de la Memoria dedicada de la GPU en GB? Solo numero"
                 $adapterRAM += " $($adapterRAMGB) GB | "
             }
-            elseif($vManual -ne 'y') {
+            elseif($vManual -ne '6') {
                 $adapterRAM += "$adapterRAMGB GB | "
             }
             $gpuDescription += "$counter. $($controller.Description) $($adapterRAMGB) GB | "
@@ -163,8 +534,11 @@ Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
         $adapterRAMBytes = $videoControllers.AdapterRAM
         $adapterRAMGB = [Math]::Round($adapterRAMBytes / 1GB, 2)
         if($adapterRAMGB -ge 4) {
-            Write-Host $videoControllers.Description
-            $adapterRAMGB = Read-Host "¿cual es el valor de la Memoria dedicada de la GPU en GB? Solo numero"
+            $txtFileTest+="GPU Verification Test PASS"+$videoControllers.Description+" `n"
+            Write-Host "    [OK]" $videoControllers.Description -ForegroundColor Green
+            $s1= Read-Host -Prompt "Enter your subject 1 name" -AsSecureString
+            #$adapterRAMGB = Read-Host "¿cual es el valor de la Memoria dedicada de la GPU en GB? Solo numero"
+            $adapterRAMGB = Read-Host -Prompt "    What is the value of the GPU Dedicated Memory in GB? Only number"
             $adapterRAM = "$($adapterRAMGB) GB"
         }
         else {
@@ -175,8 +549,11 @@ Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
     }
     $gpuDescription = $gpuDescription.TrimEnd(' | ')
     $adapterRAM = $adapterRAM.TrimEnd(' | ')
+}else{
+    $txtFileTest+="GPU Verification Test PASS, "+$gpuDescription+"`n"
+    Write-Host "    [OK] Non-dedicated GPU" $gpuDescription -ForegroundColor Green
 }
-Write-Host $gpuDescription
+
 #Hard Drive
 $internalDisks = Get-PhysicalDisk | Where-Object {$_.MediaType -match "HDD|SSD" -and $_.Usage -eq "Auto-Select"}
 $hddInformation = ""
@@ -234,10 +611,25 @@ foreach ($ram in $ramModules) {
 $ramName = "$($ramName) GB"
 $ram_desc = $ram_desc.TrimEnd(' | ')
 $description = "$descripcionEquipo`r`n$os`r`n$cpu_desc;`r`n$hddInformation`r`n$ramName GB ($ram_desc)`r`n$gpuDescription"
-$operator = Read-Host "Operator:"
+$operator = Read-Host "`n    Operator:"
 $operator = $operator.ToUpper()
 Write-Host "$($serial) - $($sku)"
 Write-Host $description
+
+while (((Test-NetConnection $addrsWeb -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -ne $true){
+
+    #write-Host "Please Connect the Equipment to the NetWork";
+    #Start-Sleep -Seconds 3
+
+    $msgBody = "Please Connect the Equipment to the NetWork"
+    $msgTitle = "Network Connection Issue"
+    $msgButton = 'Ok'
+    $msgImage = 'Warning'
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+}
+
+
 $connectionString = "Server=$server;Database=$database;User ID=$username;Password=$password;"
 $insertQuery = @"
 BEGIN TRANSACTION;
@@ -261,6 +653,39 @@ try {
     $command = New-Object System.Data.SqlClient.SqlCommand($insertQuery, $connection)
     $command.ExecuteNonQuery()
     Write-Host "Datos insertados o actualizados correctamente."
+
+    $txtFileTest+="CPU Verification Test PASS, "+$cpu_desc+"`n"
+    $txtFileTest+="HDD Capacity Test PASS, "+$SIZE_HDD+"`n"
+    $txtFileTest+="Memory RAM Capacity Test PASS, "+$ramName+"`n"
+
+    while (((Test-NetConnection 10.2.198.145 -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -ne $true){
+
+        $msgBody = "Please Connect the Equipment to the NetWork and Verify the Connection to Imaging Server"
+        $msgTitle = "Network Connection and Imaging Server Issue"
+        $msgButton = 'Ok'
+        $msgImage = 'Warning'
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+    }
+
+    net use W: \\10.2.198.145\logsPass /u:localhost\isptek YouCantRemote1!
+    New-Item $pathScript"logsPass\"$namePassFileTest -Force
+    $txtFileTest+="Operator: "+$operator+"`n"
+    $txtFileTest+="complete time: "
+    $txtFileTest+=Get-Date -Format "HH:mm:ss"
+    $txtFileTest+="`n=============================================================`nTest Result is PASS"
+    Set-Content $pathScript"logsPass\"$namePassFileTest $txtFileTest
+    Copy-Item $pathScript"logsPass\"$namePassFileTest \\10.2.198.145\logsPass\$namePassFileTest -Force
+
+    if (Test-Path $pathScript"Face.jpg") {
+
+        Move-Item $pathScript"Face.jpg" $pathScript"logsPics\"$serial"_"$sku"_"$operator".jpg" -Force
+
+        Copy-Item $pathScript"logsPics\"$serial"_"$sku"_"$operator".jpg" \\10.2.198.145\logsPics\$serial"_"$sku"_"$operator".jpg" -Force
+        #Move-Item $pathScript"Face.jpg" \\10.2.198.145\logsPics\$serial"_"$sku"_"$operator".jpg" -Force
+
+    }
+
     #Start-Sleep -Seconds 5
     #Exit
     Write-Host "1. Apagar la computadora"
@@ -295,4 +720,41 @@ try {
         $connection.Dispose()
     }
 }
+
 } while ($opcion -eq '2')
+
+# SIG # Begin signature block
+# MIIGAAYJKoZIhvcNAQcCoIIF8TCCBe0CAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
+# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUuZWzOwrSQGXtFnp7z3HTxAS0
+# qfKgggNqMIIDZjCCAk6gAwIBAgIQHKKdSd0fuahHmfjqNfspmzANBgkqhkiG9w0B
+# AQsFADBLMRYwFAYDVQQDDA1JU1AgVGVzdCBUb29sMTEwLwYJKoZIhvcNAQkBFiJs
+# b3JlbnpvLnZpbnVlemFAaXNwdGVrc2VydmljZXMuY29tMB4XDTIzMTEwNjIxNDk0
+# OFoXDTMxMDEwMTA2MDAwMFowSzEWMBQGA1UEAwwNSVNQIFRlc3QgVG9vbDExMC8G
+# CSqGSIb3DQEJARYibG9yZW56by52aW51ZXphQGlzcHRla3NlcnZpY2VzLmNvbTCC
+# ASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAM6OeNTYrSS1S4RIBQf85ODZ
+# TAxiD6BkT7+x436oxRv6TsFpEFcy1Lhrt8oswDixysWZ352D6Bkao4Hqg7hue1ny
+# PbGRDoUPFiwmp/nCDr5JVb5UFKFgb4wC0qMZHjAS6AbUWj7GK/Rc3z71ABkENyFf
+# oAdffyDA4/nkPDJcON31gAnCiKXfAqhwoj40gSLBmKuXKsCNVGYpTX8ZEzmRqsm5
+# OMj8b0CxkfijuD0Acvi+pCZqoVuL/fIu9j5M4z5xwz7qq7FYpvPn9M3NJacyoZ7X
+# WCLs/ev0oh9Nl7jq/xRPx6jflIFpnFbLPy1EDTkChrHljTHf6XIjh+zLKFXAIy0C
+# AwEAAaNGMEQwDgYDVR0PAQH/BAQDAgWgMBMGA1UdJQQMMAoGCCsGAQUFBwMDMB0G
+# A1UdDgQWBBTfyeVgwI0FJt2SI6vioo4gZmAkizANBgkqhkiG9w0BAQsFAAOCAQEA
+# HJZtteUkQDBPATYo8UeGTUjhBuQPa7ZhQnlCoSDDzoGEl/FLxxh8ob1hEI+S++qX
+# 3fBSrKECaIqE043T4EWFrtsD3kbARgUH5L4Xb3iBtg8PZSMkahRuZ3pO94Df/eV8
+# FZhHnn0KqVGEZzgEEwdmUbOl9ZnF3XJaPz3TNdiXpt+OZBS5CCTtsKMwo5fGmzhS
+# teyghqw88cw7uHUaRhO62pwcRUv1z/5sAC38z1WhfsgeeX3NQvIcq3R3lAEqmcY5
+# Z9QMoGW93xJa3s8yrImOXDHDt01zq2GV8ku6dQe6Oyt7a8Is7OLo1M056QNbvjWc
+# twGhwG4FxfP30LiW5ksXBzGCAgAwggH8AgEBMF8wSzEWMBQGA1UEAwwNSVNQIFRl
+# c3QgVG9vbDExMC8GCSqGSIb3DQEJARYibG9yZW56by52aW51ZXphQGlzcHRla3Nl
+# cnZpY2VzLmNvbQIQHKKdSd0fuahHmfjqNfspmzAJBgUrDgMCGgUAoHgwGAYKKwYB
+# BAGCNwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAc
+# BgorBgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUflIq
+# BTF2nvdfG/JiyJH7UdSIcawwDQYJKoZIhvcNAQEBBQAEggEALB/KvbfML98e3hD7
+# fV7h26vwF0C92fiKPSrVXvP3uhsaw0g265gZr7N2Awv/95qf6mtMt7fPtw7uFSw6
+# SwQvMh9XW6PYyzEhgc2mQvRUmnxvb3yEGDUkaJTXy5bL0Q59jHsc8H+7L6N4idOI
+# m0JPQWFwOvV7TgtRqcvro+gAH+kQPsjUN+LNGebhio866dtOBbdmttV/lVH1/Uci
+# qCkI7iIUZR+3Zf8By74XlVZ1ig8g4EXl6wxsQXpPiCsRHqN0qvl+HrJP9yJhR36F
+# WYkR2EoM54MHQcvnB75MVW0LlhazZHm/7WW4/8czi4guMvLHbG+Vs2LrLdQI9gBJ
+# vJjRXQ==
+# SIG # End signature block
