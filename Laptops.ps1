@@ -1,8 +1,11 @@
-﻿#sc stop WinDefend
+#sc stop WinDefend
+bcdedit /set nointegritychecks on
 
 $addrsWeb = "www.isptekservices.com";
 
 $pathScript = $PSScriptRoot; #Split-Path -Parent -Path $MyInvocation.MyCommand.Definition;
+
+$USBSN = Get-WmiObject -Class Win32_Volume | Where { $_.Caption -eq $pathScript} | select Name, DeviceID, SerialNumber
 
 $minutosAleatorios = Get-Random -Minimum 18 -Maximum 26  
 
@@ -18,7 +21,7 @@ $descripcionEquipo = (Get-WmiObject win32_computerSystem).Model
 $dateStartTest = Get-Date -Format "yyyy-MM-dd"
 $timeStartTest = Get-Date -Format "HH:mm:ss"
 
-$txtFileTest="ISP Windows Test Ver:2.00`nDate: $dateStartTest`nstart time: $timeStartTest`n";
+$txtFileTest="ISP Windows Test Ver:2.00`nDate: $dateStartTest`nstart time: $timeStartTest`nUSB SN: "+$USBSN.SerialNumber+"`n";
 
 Add-Type -AssemblyName System.Windows.Forms
 
@@ -28,11 +31,23 @@ $serial = (Get-WmiObject -Class Win32_BIOS | Select-Object -ExpandProperty Seria
 $namePassFileTest = $serial+"_"+$sku+"_Pass.log"
 $nameFailFileTest = $serial+"_"+$sku+"_Fail.log"
 
-Write-Host "╔════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+$text = "Welcome to the ISP windows test tool"
+$Voice = new-object -ComObject SAPI.SPVoice
+if($voice){[void]$Voice.Speak($text)}
 
-Write-Host "║                           ISP TEK SERVICES TEST TOOL                               ║" -ForegroundColor Cyan
+Write-Host "╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 
-Write-Host "╚════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+
+
+Write-Host "  ___ ____  ____   __        ___           _                     _____         _     _____           _ " -ForegroundColor Cyan
+Write-Host " |_ _/ ___||  _ \  \ \      / (_)_ __   __| | _____      _____  |_   _|__  ___| |_  |_   _|__   ___ | |" -ForegroundColor Cyan
+Write-Host "  | |\___ \| |_) |  \ \ /\ / /| | '_ \ / _`  |/ _ \ \ /\ / / __|   | |/ _ \/ __| __|   | |/ _ \ / _ \| |" -ForegroundColor Cyan
+Write-Host "  | | ___) |  __/    \ V  V / | | | | | (_| | (_) \ V  V /\__ \   | |  __/\__ \ |_    | | (_) | (_) | |" -ForegroundColor Cyan
+Write-Host " |___|____/|_|        \_/\_/  |_|_| |_|\__,_|\___/ \_/\_/ |___/   |_|\___||___/\__|   |_|\___/ \___/|_|" -ForegroundColor Cyan
+Write-Host "                                                                                                       "
+Write-Host "║                          ISP TEK SERVICES WINDOWS TEST TOOL Ver:2.00 by LV                           ║" -ForegroundColor  Cyan
+
+Write-Host "╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 
 Write-Host "`n   1. Serial Number Verification Process" 
 
@@ -290,28 +305,98 @@ do {
     $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
     #$allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
 
+
     Write-Host "`n   6. Device Manager Drivers Verification Process"
     Start-Process "devmgmt.msc"
-
     if ($allDevices) {
         $driverError = $true
         Write-Host "    [NO] Missing Drivers" -ForegroundColor Red
     
         do {
-            $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
-            #$resDriver = Read-Host "¿Desea continuar? (Y/N)"
-            #$resDriver = $resDriver.ToLower()
 
-            $msgBody = "Please check that there are no missing drivers or problems with drivers. Do you want to continue?"
-            $msgTitle = "Device Manager Drivers Test"
-            $msgButton = 'AbortRetryIgnore'
+        #$resDriver = Read-Host "¿Desea continuar? (Y/N)"
+        #$resDriver = $resDriver.ToLower()
+        
+        #if ($resDriver -ne "y" -and $resDriver -ne "n") {
+
+            #Write-Host "Respuesta no reconocida. Por favor, responda con Y o N."
+
+        #}
+
+        $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
+
+        $msgBody = "Please check that there are no missing drivers or problems with drivers."
+        $msgTitle = "Device Manager Drivers Test"
+        $msgButton = 'AbortRetryIgnore'
+        $msgImage = 'Question'    
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+        $resDriver = ($result).value__
+
+        if ($resDriver -eq "3") {
+   
+            Write-Host "    [NO] Missing Drivers" -ForegroundColor Red
+
+            $txtFileTest+="Device Manager Drivers Test FAIL`n"
+
+            net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+            New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+            $txtFileTest+="complete time:"
+            $txtFileTest+=Get-Date -Format "HH:mm:ss"
+            $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+            Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+            Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+            exit
+
+        }
+
+        if ($resDriver -eq "5") {
+            
+            $txtFileTest+="Device Manager Drivers Test PASS`n"
+            Write-Host "    [OK] Drivers Installed" -ForegroundColor Green
+            break
+                    
+        }
+
+    } while ($resDriver -eq "4" -or $allDevices)
+    
+        $txtFileTest+="Device Manager Drivers Test PASS`n"
+        Write-Host "      [OK] Drivers Installed" -ForegroundColor Green
+
+    } else {
+        $txtFileTest+="Device Manager Drivers Test PASS`n"
+        Write-Host "    [OK] Drivers Installed" -ForegroundColor Green
+    }
+
+    $driverError = $false
+
+    Write-Host "`n     6.1 Display Adapter Verification Process" 
+
+    $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.Caption -eq "Microsoft Basic Display Adapter" -or $_.Caption -eq "Standard VGA Graphics Adapter" -or $_.Caption -eq "Video Controller (VGA Compatible)" }
+
+    Start-Process "devmgmt.msc"
+
+    if ($allDevices) {
+
+        do{
+
+            $driverError = $true
+            Write-Host "     [NO] Missing Display Adapter Drivers" -ForegroundColor Red
+
+            $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.Caption -eq "Microsoft Basic Display Adapter" -or $_.Caption -eq "Standard VGA Graphics Adapter" -or $_.Caption -eq "Video Controller (VGA Compatible)" }
+
+            $msgBody = "Verify that the display adapter drivers are installed. Do you want to check again?."
+            $msgTitle = "Display Adapter Drivers Test"
+            $msgButton = 'RetryCancel'
             $msgImage = 'Question'    
             $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
             $resDriver = ($result).value__
-        
-            if ($resDriver -eq "3") {
-               # Write-Host "Respuesta no reconocida. Por favor, responda con Y o N."
-                Write-Host "    [NO] Missing Drivers" -ForegroundColor Red
+
+            if ($resDriver -eq "2") {
+   
+                Write-Host "     [NO] Missing Display Adapter Drivers" -ForegroundColor Red
+
+                $txtFileTest+="Display Adapter Drivers Test FAIL`n"
 
                 net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
                 New-Item $pathScript"logsFails\"$nameFailFileTest -Force
@@ -325,26 +410,183 @@ do {
 
             }
 
-            if ($resDriver -eq "5") {
-               # Write-Host "Respuesta no reconocida. Por favor, responda con Y o N."
-                Write-Host "    [YES] Missing Drivers" -ForegroundColor Grenn
-                break
-                    
-            }
+        }while($allDevices)
 
-        } while ($resDriver -eq "4" -or $allDevices)
-    
+        $txtFileTest+="Display Adapter Drivers Test PASS`n"
+        Write-Host "      [OK] Display Adapter Drivers Installed" -ForegroundColor Green
 
-    } else {
-        $txtFileTest+="Device Manager Drivers Test PASS`n"
-        Write-Host "    [OK] Drivers Installed" -ForegroundColor Green
+     } else {
+        $txtFileTest+="Display Adapter Drivers Test PASS`n"
+        Write-Host "      [OK] Display Adapter Drivers Installed" -ForegroundColor Green
     }
 
+    Write-Host "`n   7. Brightness Verification Process"
 
-    $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.Caption -Like "Microsoft Basic*" -or $_.Caption -Like "Standard VGA*" -or $_.Caption -Like "Video Controller*" }
+    do{
+
+        (gwmi -n root\wmi -cl WmiMonitorBrightnessMethods).WmiSetBrightness(0, 2)
+
+        Start-Sleep -Seconds 4
+
+        (gwmi -n root\wmi -cl WmiMonitorBrightnessMethods).WmiSetBrightness(0, 100)
+    
+        $msgBody = "Did the Brightness go down and up automatically?."
+        $msgTitle = "Brightness Test"
+        $msgButton = 'YesNoCancel'
+        $msgImage = 'Question'    
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+        $resDriver = ($result).value__
+
+        if ($resDriver -eq "2") {
+   
+            Write-Host "     [NO] Brightness Fail" -ForegroundColor Red
+
+            $txtFileTest+="Brightness Test FAIL`n"
+
+            net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+            New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+            $txtFileTest+="complete time:"
+            $txtFileTest+=Get-Date -Format "HH:mm:ss"
+            $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+            Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+            Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+            exit
+
+        }
+    
+    }while($resDriver -eq "7")
+
+    $txtFileTest+="Brightness test PASS`n"
+    Write-Host "    [OK] Brightness test PASS" -ForegroundColor Green
+
+    Write-Host "`n   8. Battery Verification Process"
+
+    $msgBody = "Does the unit have a Battery?"
+    $msgTitle = "Battery Test"
+    $msgButton = 'YesNo'
+    $msgImage = 'Question'    
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+    $resDriver = ($result).value__
+
+    if($resDriver -eq "6"){
+
+        $InfoAlertPercent = "80"
+        $WarnAlertPercent = "50"
+        $CritAlertPercent = "20"
+        $BatteryHealth=""
+        & powercfg /batteryreport /XML /OUTPUT "batteryreport.xml" | Out-null
+        if (Test-Path $pathScript"batteryreport.xml") {
+            Start-Sleep 1
+            [xml]$b = Get-Content batteryreport.xml
+
+            if($b.BatteryReport.Batteries.childnodes.count -gt 0 ){
+
+                $b.BatteryReport.Batteries |
+                ForEach-Object{
+                    <#[PSCustomObject]@{
+
+                        DesignCapacity = $_.Battery.DesignCapacity
+                        FullChargeCapacity = $_.Battery.FullChargeCapacity
+                        BatteryHealth = [math]::floor([int64]$_.Battery.FullChargeCapacity/[int64]$_.Battery.DesignCapacity*100)
+                        CycleCount = $_.Battery.CycleCount
+                        Id = $_.Battery.id
+            
+                    }#>
+        
+                $batteryHealth = [math]::floor([int64]$_.Battery.FullChargeCapacity/[int64]$_.Battery.DesignCapacity*100)
+
+                if (([int64]$_.Battery.FullChargeCapacity/[int64]$_.Battery.DesignCapacity)*100 -gt $InfoAlertPercent){
+
+                    #$BatteryHealth="Great"
+                    $txtFileTest+="Battery test PASS, Design Capacity = "+$_.Battery.DesignCapacity+", Full Charge Capacity= "+$_.Battery.FullChargeCapacity+", Battery Health= "+$batteryHealth+"%, Cycle Count= "+$_.Battery.CycleCount+" ID= "+$_.Battery.id+"`n"
+                    
 
 
+                    Write-Host "    [OK] Battery DesignCapacity: "$_.Battery.DesignCapacity -ForegroundColor Green
+                    Write-Host "    [OK] Battery Full ChargeCapacity: "$_.Battery.FullChargeCapacity -ForegroundColor Green
+                    Write-Host "    [OK] Battery Battery Health %: "$batteryHealth -ForegroundColor Green
+                    Write-Host "    [OK] Battery Cycle Count: "$_.Battery.CycleCount -ForegroundColor Green
+                    Write-Host "    [OK] Battery ID: "$_.Battery.id -ForegroundColor Green
 
+                }else{
+
+                    #$BatteryHealth="Critical"
+                    $txtFileTest+="Battery test FAIL, Design Capacity = "+$_.Battery.DesignCapacity+", Full Charge Capacity= "+$_.Battery.FullChargeCapacity+", Battery Health= "+$batteryHealth+"%, Cycle Count= "+$_.Battery.CycleCount+", ID= "+$_.Battery.id+"`n"
+                    
+                    Write-Host "    [NO] Battery DesignCapacity: "$_.Battery.DesignCapacity -ForegroundColor Red
+                    Write-Host "    [NO] Battery Full ChargeCapacity: "$_.Battery.FullChargeCapacity -ForegroundColor Red
+                    Write-Host "    [NO] Battery Battery Health %: "$batteryHealth -ForegroundColor Red
+                    Write-Host "    [NO] Battery Cycle Count: "$_.Battery.CycleCount -ForegroundColor Red
+                    Write-Host "    [NO] Battery ID"$_.Battery.id -ForegroundColor Red
+
+                    $msgBody = "Battery Test Fail" 
+                    $msgTitle = "Battery Test"
+                    $msgButton = 'OK'
+                    $msgImage = 'Error'
+                    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+                    net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+                    New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+                    $txtFileTest+="complete time:"
+                    $txtFileTest+=Get-Date -Format "HH:mm:ss"
+                    $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+                    Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+                    Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+                    exit
+
+                }
+            }
+
+        }else{
+        
+                $txtFileTest+="Battery test FAIL, Design Capacity = 0, Full Charge Capacity= 0, Battery Health= 0%, Cycle Count= 0, ID= 0 `n"
+                    
+                Write-Host "    [NO] Battery DesignCapacity: 0" -ForegroundColor Red
+                Write-Host "    [NO] Battery Full ChargeCapacity: 0" -ForegroundColor Red
+                Write-Host "    [NO] Battery Battery Health %: 0" -ForegroundColor Red
+                Write-Host "    [NO] Battery Cycle Count: 0" -ForegroundColor Red
+                Write-Host "    [NO] Battery ID: 0" -ForegroundColor Red
+
+                $msgBody = "Battery Test Fail" 
+                $msgTitle = "Battery Test"
+                $msgButton = 'OK'
+                $msgImage = 'Error'
+                $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+                net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+                New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+                $txtFileTest+="complete time:"
+                $txtFileTest+=Get-Date -Format "HH:mm:ss"
+                $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+                Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+                Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+
+                exit
+        
+            }
+
+            Remove-Item "batteryreport.xml" -force | Out-Null
+
+        }else{
+        
+            $msgBody = "The Unit will reboot, when it does please restart the ISP Windows Test Process" 
+            $msgTitle = "Unit needs to reboot"
+            $msgButton = 'OK'
+            $msgImage = 'Information'
+            $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+            Restart-Computer -Force
+        
+        }
+
+    }else{
+    
+        $txtFileTest+="The unit does not have a Battery PASS`n"
+        Write-Host "    [NO] The unit does not have a Battery" -ForegroundColor Red
+
+    }
 
 function ConvertBytesToStandardSize {
     param (
@@ -398,14 +640,14 @@ function FormatSize {
     return $formattedSize
 }
 
-Write-Host "`n   7. Verifying the windows license, wait a minute..."
+    Write-Host "`n   9. Verifying the windows license, wait a minute..."
 
 function CheckAndActivateWindows {
 
     while ($ta.LicenseStatus -ne 1){
 
 
-            Write-Host "`n     7.1 Activating Windows..." 
+            Write-Host "`n     9.1 Activating Windows..." 
             
             Write-Host "      [OK] Windows Product Key: $keyWindows" -ForegroundColor Green
             
@@ -415,8 +657,7 @@ function CheckAndActivateWindows {
 
             Start-Sleep -Seconds 3
             
-            $ta = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL" |
-    Where-Object -Property Name -Like "Windows*"            
+            $ta = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL" | Where-Object -Property Name -Like "Windows*"            
 
     } 
 
@@ -463,7 +704,7 @@ $cpu_desc = "$($cpu.Name) ($($cpu.MaxClockSpeed) GHz, $($cpu.L3CacheSize) MB L3 
 
 #video
 #$respuesta = Read-Host "¿Tiene GPU dedicada? (Y/N)"
-Write-Host "`n   8. Dediacted GPU Verification Process"
+Write-Host "`n   10. Dediacted GPU Verification Process"
 $msgBody = "Does the unit have a dedicated GPU?"
 $msgTitle = "GPU"
 $msgButton = 'YesNo'
@@ -722,6 +963,8 @@ try {
 }
 
 } while ($opcion -eq '2')
+
+bcdedit /set nointegritychecks off
 
 # SIG # Begin signature block
 # MIIGAAYJKoZIhvcNAQcCoIIF8TCCBe0CAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
