@@ -14,6 +14,18 @@ $startDate = Get-Date
 $endDate = $startDate.AddMinutes(-$minutosAleatorios).AddSeconds(-$minutosAleatorios - 1)
 
 $keyWindows = (Get-WmiObject -query 'select * from SoftwareLicensingService').OA3xOriginalProductKey
+
+if($keyWindows){
+
+    
+
+}else{
+
+    $xx = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform' -Name "BackupProductKeyDefault"
+    $keyWindows = $xx.BackupProductKeyDefault
+
+}
+
 $os = Get-WmiObject -Class Win32_OperatingSystem | Select-Object -ExpandProperty Caption
 
 $descripcionEquipo = (Get-WmiObject win32_computerSystem).Model
@@ -24,6 +36,9 @@ $timeStartTest = Get-Date -Format "HH:mm:ss"
 $txtFileTest="ISP Windows Test Ver:2.00`nDate: $dateStartTest`nstart time: $timeStartTest`nUSB SN: "+$USBSN.SerialNumber+"`n";
 
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
 $sku = (Get-WmiObject win32_computerSystem | Select-Object -ExpandProperty SystemSKUNumber)
 $serial = (Get-WmiObject -Class Win32_BIOS | Select-Object -ExpandProperty SerialNumber)
@@ -129,12 +144,270 @@ if($resDriver -eq "7"){
 
 $txtFileTest+="Product Description: "+$descripcionEquipo+"`n"
 
+Write-Host "`n   3. LCD SpotLight and Lines Verification Process"
+
+function spotLightsLinesTest (){
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'Changing Colors..'
+
+    $form.ControlBox = $False
+    $form.WindowState = 'Maximized'
+    $form.FormBorderStyle = 'None'
+    $form.Anchor = "None"
+
+    $form.StartPosition = "CenterScreen"
+    $form.TopMost = $true
+    $form.SuspendLayout()
+
+    $btnOK = New-Object System.Windows.Forms.Button
+    $btnOK.Anchor = 'Top','Left'
+    $btnOK.Size = [System.Drawing.Size]::new(120, 31)
+    $btnOK.Location = [System.Drawing.Point]::new($form.Width / 2 - $btnOK.Width -8, 150)
+    $btnOK.Text = 'Close'
+    $btnOK.UseVisualStyleBackColor = $true
+
+    $btnOK.Add_Click({
+ 
+        $form.Close()
+    
+    })
+
+    $form.Controls.Add($btnOK)
+
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 1000   # for demo 1 second
+    $timer.Enabled = $false  # disabled at first
+    $timer.Tag = -1          # store the starting color index. Initialize to -1
+    $timer.Add_Tick({
+        $colors = 'Red', 'Green', 'Blue', 'Black', 'White'
+        # prevent the same color index to repeat
+        $index = Get-Random -Maximum $colors.Count
+        
+        if ($index -eq $this.Tag){ 
+            $index = ($index + 1) % $colors.Count 
+        }
+        
+        $this.Tag = $index
+        $form.BackColor = $colors[$index]
+
+    })
+    
+    $form.ResumeLayout()
+    $form.PerformLayout()
+
+    $form.Add_Shown({
+        $timer.Enabled = $true; 
+        $timer.Start()
+    })
+
+    [void]$form.ShowDialog()
+
+    # clean up the Timer and Form objects
+    $timer.Dispose()
+    $form.Dispose()
+
+}
+
+do{
+
+    spotLightsLinesTest
+
+    $msgBody = "Could you see any spotlight, vertical lines or horizontal lines?`n If you need to test again please click cancel" 
+    $msgTitle = "Spotlight Lines Test"
+    $msgButton = 'YesNoCancel'
+    $msgImage = 'Question'    
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+    $resDriver = ($result).value__
+
+}while($resDriver -eq "2")
+
+
+
+if($resDriver -eq "6" ){
+
+    Write-Host "    [NO] LCD SpotLight and Lines Test FAIL" -ForegroundColor Red
+        
+        $txtFileTest+="LCD SpotLight and Lines Test FAIL`n"
+
+        $msgBody = "LCD SpotLight and Lines Test Fail" 
+        $msgTitle = "LCD SpotLight and Lines Test"
+        $msgButton = 'OK'
+        $msgImage = 'Error'
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+        net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+        New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+        $txtFileTest+="complete time:"
+        $txtFileTest+=Get-Date -Format "HH:mm:ss"
+        $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+        Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+        Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+    
+        exit
+
+}
+
+$txtFileTest+="LCD SpotLight and Lines Test PASS `n"
+
+Write-Host "    [OK] LCD SpotLight and Lines test PASS" -ForegroundColor Green
+
+
+
+
+
+
+
+
+Write-Host "`n   4. MousePad Verification Process"
+
+function MousePadTest (){
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'Changing Colors..'
+
+    $form.ControlBox = $False
+    $form.WindowState = 'Maximized'
+    $form.FormBorderStyle = 'None'
+    $form.Anchor = "None"
+
+    $form.StartPosition = "CenterScreen"
+    $form.TopMost = $true
+    $form.SuspendLayout()
+
+    $form.ResumeLayout()
+    $form.PerformLayout()
+    $form.SuspendLayout()
+
+    $monitor = [System.Windows.Forms.Screen]::PrimaryScreen
+
+    $Groupbox1                       = New-Object system.Windows.Forms.Groupbox
+    $Groupbox1.BackColor             = 'White'
+    $Groupbox1.height                = 287
+    $Groupbox1.width                 = 607
+    $Groupbox1.Anchor                = 'top,right,bottom,left'
+    $Groupbox1.text                  = "MOUSEPAD TEST"
+    $Groupbox1.location              = [System.Drawing.Point]::new(($monitor.WorkingArea.Width / 2)-($Groupbox1.Width / 2), ($monitor.WorkingArea.Height / 2)-($Groupbox1.Height / 2))
+
+    $CmdClose                        = New-Object system.Windows.Forms.Button
+    $CmdClose.text                   = "Close"
+    $CmdClose.width                  = 60
+    $CmdClose.height                 = 30
+    $CmdClose.location               = New-Object System.Drawing.Point(273,82)
+    $CmdClose.Font                   = New-Object System.Drawing.Font('Microsoft Sans Serif',10)
+
+    $LlblLeft                        = New-Object system.Windows.Forms.Label
+    $LlblLeft.text                   = "Left Button"
+    $LlblLeft.AutoSize               = $false
+    $LlblLeft.width                  = 295
+    $LlblLeft.height                 = 80
+    $LlblLeft.location               = New-Object System.Drawing.Point(5,202)
+    $LlblLeft.Font                   = New-Object System.Drawing.Font('Microsoft Sans Serif',20,[System.Drawing.FontStyle]([System.Drawing.FontStyle]::Bold))
+    $LlblLeft.BackColor              = [System.Drawing.ColorTranslator]::FromHtml("#4a90e2")
+
+    $LblRight                        = New-Object system.Windows.Forms.Label
+    $LblRight.text                   = "Right Button"
+    $LblRight.AutoSize               = $false
+    $LblRight.width                  = 295
+    $LblRight.height                 = 80
+    $LblRight.location               = New-Object System.Drawing.Point(305,202)
+    $LblRight.Font                   = New-Object System.Drawing.Font('Microsoft Sans Serif',20,[System.Drawing.FontStyle]([System.Drawing.FontStyle]::Bold))
+    $lblRight.BackColor              = [System.Drawing.ColorTranslator]::FromHtml("#4a90e2")
+
+    $global:cr = 1
+    $global:cl = 1
+
+
+    $form.Add_MouseUP( {
+
+        if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Right ) {
+
+            $LblRight.text = "Right Button "+$global:cr++
+            $LblRight.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#E5E5E5")
+            Start-Sleep -Milliseconds 125
+            $LblRight.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#4a90e2")
+
+        }
+
+        if ($_.Button -eq [System.Windows.Forms.MouseButtons]::Left ) {
+
+            $LlblLeft.text = "Left Button "+$global:cl++
+            $LlblLeft.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#E5E5E5")
+            Start-Sleep -Milliseconds 125
+            $LlblLeft.BackColor = [System.Drawing.ColorTranslator]::FromHtml("#4a90e2")
+
+        }
+
+    })
+
+    $CmdClose.Add_Click({
+ 
+        $form.Close()
+    
+    })
+
+    $Groupbox1.controls.AddRange(@($LlblLeft,$lblRight,$CmdClose))
+    $form.controls.AddRange(@($Groupbox1))
+
+    [void]$form.ShowDialog()
+
+}
+
+do{
+
+    MousePadTest
+
+    $msgBody = "Does the MOUSE PAD work normally?`n If you need to test again please click cancel" 
+    $msgTitle = "Spotlight Lines Test"
+    $msgButton = 'YesNoCancel'
+    $msgImage = 'Question'    
+    $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+    $resDriver = ($result).value__
+
+}while($resDriver -eq "2")
+
+if($resDriver -eq "7" ){
+
+    Write-Host "    [NO] MousePad Test FAIL" -ForegroundColor Red
+        
+        $txtFileTest+="MousePad Test FAIL`n"
+
+        $msgBody = "MousePad Test Fail" 
+        $msgTitle = "MousePad Test"
+        $msgButton = 'OK'
+        $msgImage = 'Error'
+        $result = [System.Windows.Forms.MessageBox]::Show($msgBody,$msgTitle,$msgButton,$msgImage)
+
+        net use W: \\10.2.198.145\logsFails /u:localhost\isptek YouCantRemote1!
+        New-Item $pathScript"logsFails\"$nameFailFileTest -Force
+        $txtFileTest+="complete time:"
+        $txtFileTest+=Get-Date -Format "HH:mm:ss"
+        $txtFileTest+="`n=============================================================`nTest Result is FAIL"
+        Set-Content $pathScript"logsFails\"$nameFailFileTest $txtFileTest
+        Copy-Item $pathScript"logsFails\"$nameFailFileTest \\10.2.198.145\logsFails\$nameFailFileTest -Force
+    
+        exit
+
+}
+
+$txtFileTest+="MousePad Test PASS `n"
+
+Write-Host "    [OK] MousePad test PASS" -ForegroundColor Green
+
+
+
+
+
+
+
+
+
+
+
 
 $sound = new-Object System.Media.SoundPlayer;
 
 $sound.SoundLocation= $pathScript+"\Chnl_R.wav";
 
-Write-Host "`n   3. Internal Speaker Right Channel Verification Process, Please Listing the Music" 
+Write-Host "`n   5. Internal Speaker Right Channel Verification Process, Please Listing the Music" 
 
 do{
     $sound.Play();
@@ -176,7 +449,7 @@ $txtFileTest+="Internal Speaker Right Channel Test PASS `n"
 
 Write-Host "    [OK] Speaker Right Channel test PASS" -ForegroundColor Green
 
-Write-Host "`n   4. Internal Speaker Left Channel Verification Process, Please Listing the Music"
+Write-Host "`n   6. Internal Speaker Left Channel Verification Process, Please Listing the Music"
 
 $sound.SoundLocation= $pathScript+"\Chnl_L.wav";
 
@@ -219,7 +492,7 @@ do{
 $txtFileTest+="Internal Speaker Left Channel Test PASS `n"
 Write-Host "    [OK] Speaker Left Channel test PASS" -ForegroundColor Green
 
-Write-Host "`n   5. Webcam Verification Process"
+Write-Host "`n   7. Webcam Verification Process"
 
 $msgBody = "Does the unit have a webcam?"
 $msgTitle = "Webcam Test"
@@ -306,7 +579,7 @@ do {
     #$allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.ConfigManagerErrorCode -ne 0 }
 
 
-    Write-Host "`n   6. Device Manager Drivers Verification Process"
+    Write-Host "`n   8. Device Manager Drivers Verification Process"
     Start-Process "devmgmt.msc"
     if ($allDevices) {
         $driverError = $true
@@ -370,7 +643,7 @@ do {
 
     $driverError = $false
 
-    Write-Host "`n     6.1 Display Adapter Verification Process" 
+    Write-Host "`n     8.1 Display Adapter Verification Process" 
 
     $allDevices = Get-WmiObject -Class Win32_PnPEntity -Namespace "Root\CIMV2" | Where-Object { $_.Caption -eq "Microsoft Basic Display Adapter" -or $_.Caption -eq "Standard VGA Graphics Adapter" -or $_.Caption -eq "Video Controller (VGA Compatible)" }
 
@@ -420,7 +693,7 @@ do {
         Write-Host "      [OK] Display Adapter Drivers Installed" -ForegroundColor Green
     }
 
-    Write-Host "`n   7. Brightness Verification Process"
+    Write-Host "`n   9. Brightness Verification Process"
 
     do{
 
@@ -460,7 +733,7 @@ do {
     $txtFileTest+="Brightness test PASS`n"
     Write-Host "    [OK] Brightness test PASS" -ForegroundColor Green
 
-    Write-Host "`n   8. Battery Verification Process"
+    Write-Host "`n   10. Battery Verification Process"
 
     $msgBody = "Does the unit have a Battery?"
     $msgTitle = "Battery Test"
@@ -640,14 +913,14 @@ function FormatSize {
     return $formattedSize
 }
 
-    Write-Host "`n   9. Verifying the windows license, wait a minute..."
+    Write-Host "`n   11. Verifying the windows license, wait a minute..."
 
 function CheckAndActivateWindows {
 
     while ($ta.LicenseStatus -ne 1){
 
 
-            Write-Host "`n     9.1 Activating Windows..." 
+            Write-Host "`n     11.1 Activating Windows..." 
             
             Write-Host "      [OK] Windows Product Key: $keyWindows" -ForegroundColor Green
             
@@ -701,10 +974,10 @@ $cpuName = (Get-WmiObject -Class Win32_Processor).Name
 $cpu = Get-WmiObject -Class Win32_Processor
 $cpu_desc = "$($cpu.Name) ($($cpu.MaxClockSpeed) GHz, $($cpu.L3CacheSize) MB L3 cache, $($cpu.NumberOfCores) cores, $($cpu.NumberOfLogicalProcessors) threads)"
 
-
+Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
 #video
 #$respuesta = Read-Host "¿Tiene GPU dedicada? (Y/N)"
-Write-Host "`n   10. Dediacted GPU Verification Process"
+Write-Host "`n   12. Dediacted GPU Verification Process"
 $msgBody = "Does the unit have a dedicated GPU?"
 $msgTitle = "GPU"
 $msgButton = 'YesNo'
@@ -734,7 +1007,7 @@ $gpuDescription = $gpuDescription.TrimEnd(' | ')
 $adapterRAM = $adapterRAM.TrimEnd(' | ')
 #if ($respuesta -eq "Y" -or $respuesta -eq "y") {
 if ($respuesta -eq "6") {
-Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
+#Start-Process -FilePath "taskmgr.exe" -ArgumentList "/Performance"
     $gpuDescription = ""
     $adapterRAM = ""
     if ($videoControllers -is [array]) {
